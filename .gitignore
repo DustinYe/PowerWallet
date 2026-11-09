@@ -1,0 +1,11 @@
+/dist/
+/artifacts/
+/artifacts-*/
+*.jks
+*.keystore
+*.idsig
+*.log
+*.tmp
+local.properties
+**/bin/
+**/obj/
