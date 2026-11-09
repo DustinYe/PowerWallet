@@ -10,6 +10,7 @@ PASS unauthorized phone performs no mutation
 PASS USB install rejection produces useful guidance
 PASS failed install never starts helper
 PASS restore remains available after a firmware update
+PASS restore completion preserves the actual result for the interface
 PASS desktop restore delegates to saved original setting
 PASS successful activation requires a live helper response
 PASS activation stops, installs, deploys, then starts in order
@@ -18,7 +19,7 @@ PASS diagnostic output hides device serial
 PASS embedded asset adb.exe
 PASS embedded asset AdbWinApi.dll
 PASS embedded asset AdbWinUsbApi.dll
-PASS embedded asset PowerWallet-1.0.2.apk
+PASS embedded asset PowerWallet-1.0.3.apk
 PASS embedded asset NOTICE.txt
 PASS embedded asset source.properties
 PASS window fits 800x600x1 dark
@@ -439,4 +440,4 @@ PASS action fits horizontally 打开手机插件 3840x2160x3 light
 PASS action is visible or vertically reachable 打开手机插件 3840x2160x3 light
 PASS action stays visible on compact screen 打开手机插件 3840x2160x3 light
 PASS no horizontal scrolling 3840x2160x3 light
-441 checks passed; 38 theme / display combinations; no phone required.
+442 checks passed; 38 theme / display combinations; no phone required.

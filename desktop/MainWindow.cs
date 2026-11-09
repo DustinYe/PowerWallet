@@ -32,8 +32,10 @@ namespace PowerWallet {
         private WalletController controller;
         private PhoneInfo phone=new PhoneInfo();
         private readonly DispatcherTimer timer=new DispatcherTimer();
-        private bool busy,changingSelection,testMode,failed;
+        private bool busy,refreshing,changingSelection,testMode,failed;
+        private int operationRevision;
         private string preference="system",lastDevice="";
+        private string restoreFeedback="";
         public const string Repository="https://github.com/DustinYe/PowerWallet";
         private static readonly string Preferences=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"PowerWallet","theme.txt");
 
@@ -154,10 +156,10 @@ namespace PowerWallet {
             dock.Height=width<440 && height<400?400:Math.Max(220,height);UpdateScreenInfo();
         }
         private void UpdateScreenInfo() {
-            if(testMode){screenInfo.Text="Windows x64 · 手机插件 1.0.2 · 分辨率与缩放自适应";return;}
+            if(testMode){screenInfo.Text="Windows x64 · 手机插件 1.0.3 · 分辨率与缩放自适应";return;}
             var source=PresentationSource.FromVisual(this);
             double scale=source==null || source.CompositionTarget==null?1:source.CompositionTarget.TransformToDevice.M11;
-            screenInfo.Text="桌面版 1.0.0 · 手机插件 1.0.2 · 当前缩放 "+Math.Round(scale*100)+"%";
+            screenInfo.Text="桌面版 1.0.1 · 手机插件 1.0.3 · 当前缩放 "+Math.Round(scale*100)+"%";
         }
         public void ShowPhone(PhoneInfo value) {
             phone=value;
@@ -165,6 +167,10 @@ namespace PowerWallet {
                 statusPill.Text=phone.Active?"已激活 · 可拔线使用":phone.CanActivate?"可以开始":phone.Device!=null && phone.Device.State=="unauthorized"?"等待手机授权":"准备连接";
                 heading.Text=phone.Active?"钱包快捷键已就绪":phone.CanActivate?"手机已准备好":phone.Device==null?"连接你的小米手机":phone.Device.State!="device"?"请在手机完成授权":!phone.Supported?"此系统尚未适配":"还需要 Google 钱包";
                 description.Text=phone.Reason.Length>0?phone.Reason:"用数据线连接手机，并打开 USB 调试。";
+                if(phone.Active)restoreFeedback="";
+                else if(restoreFeedback.Length>0 && phone.Device!=null && phone.Device.State=="device") {
+                    statusPill.Text="已停用";heading.Text=restoreFeedback.Contains("保留")?"已停用，保留当前设置":"已恢复原快捷键";description.Text=restoreFeedback+"。需要再次使用时，点击“安装并激活”。";
+                }
             }
             deviceInfo.Text=phone.Device!=null && phone.Device.State=="device"?phone.DisplayModel+" · Android "+phone.Android+"\n"+phone.Rom:"电脑会自动检测已连接的 Android 手机。";
             support.Text=phone.Device!=null && phone.Device.State=="device"?(phone.Supported?"✓ 此机型和系统版本已适配":"支持范围：小米 13 Ultra · "+WalletController.SupportedRom):"无需 root · 内置 ADB · 无需另外安装运行库";
@@ -172,11 +178,11 @@ namespace PowerWallet {
             ActivateButton.IsEnabled=!busy && controller!=null && phone.CanActivate;
             RestoreButton.IsEnabled=!busy && controller!=null && phone.Device!=null && phone.Device.State=="device" && phone.HasBackup;
             OpenButton.IsEnabled=!busy && controller!=null && phone.CurrentHelper;
-            refreshButton.IsEnabled=!busy && controller!=null;devices.IsEnabled=!busy && devices.Items.Count>0 && devices.Items[0] is Device;
+            refreshButton.IsEnabled=!busy && !refreshing && controller!=null;devices.IsEnabled=!busy && !refreshing && devices.Items.Count>0 && devices.Items[0] is Device;
             ActivateButton.Content=phone.Active?"重新激活":"安装并激活";
         }
         private void SetBusy(bool value,string title) {
-            busy=value;progress.Visibility=value?Visibility.Visible:Visibility.Collapsed;
+            busy=value;if(value)operationRevision++;progress.Visibility=value?Visibility.Visible:Visibility.Collapsed;
             if(value){failed=false;statusPill.Text="正在处理";heading.Text=title;description.Text="请保持数据线连接，并留意手机上的授权或安装提示。";}
             ShowPhone(phone);
         }
@@ -198,25 +204,32 @@ namespace PowerWallet {
             failed=true;statusPill.Text="操作未完成";heading.Text="请检查后重试";description.Text=WalletController.Redact(ex.Message,phone.Device);AppendLog(description.Text);
         }
         private async Task Refresh(bool explicitRefresh) {
-            if(busy || controller==null)return;
-            busy=true;if(explicitRefresh)failed=false;ShowPhone(phone);
+            if(busy || refreshing || controller==null)return;
+            refreshing=true;
+            if(explicitRefresh){busy=true;failed=false;}
+            int expectedRevision=operationRevision;
+            ShowPhone(phone);
             string selected=devices.SelectedItem is Device?((Device)devices.SelectedItem).Serial:lastDevice;
             try {
                 var found=await Task.Run(()=>controller.Scan());
+                if(expectedRevision!=operationRevision || (!explicitRefresh && busy))return;
                 Device chosen=found.FirstOrDefault(x=>x.Serial==selected) ?? found.FirstOrDefault(x=>x.State=="device") ?? found.FirstOrDefault();
                 changingSelection=true;devices.Items.Clear();foreach(var d in found)devices.Items.Add(d);
-                if(chosen!=null){devices.SelectedItem=chosen;lastDevice=chosen.Serial;}else{devices.Items.Add("尚未发现手机");devices.SelectedIndex=0;}
+                if(chosen!=null){if(lastDevice!=chosen.Serial)restoreFeedback="";devices.SelectedItem=chosen;lastDevice=chosen.Serial;}else{devices.Items.Add("尚未发现手机");devices.SelectedIndex=0;restoreFeedback="";}
                 changingSelection=false;
-                phone=await Task.Run(()=>controller.Inspect(chosen));
+                var inspected=await Task.Run(()=>controller.Inspect(chosen));
+                if(expectedRevision!=operationRevision || (!explicitRefresh && busy))return;
+                phone=inspected;
                 if(explicitRefresh)AppendLog(chosen==null?"没有发现手机，等待连接。":phone.DisplayModel+"："+phone.Reason);
-            }catch(Exception ex){ShowError(ex);}finally{changingSelection=false;busy=false;ShowPhone(phone);}
+            }catch(Exception ex){if(expectedRevision==operationRevision && (explicitRefresh || !busy))ShowError(ex);}
+            finally{changingSelection=false;refreshing=false;if(explicitRefresh)busy=false;ShowPhone(phone);}
         }
         private async Task Operate(string operation) {
             if(busy || controller==null || phone.Device==null)return;Device selected=phone.Device;
             SetBusy(true,operation=="activate"?"正在安装并激活":operation=="restore"?"正在恢复原快捷键":"正在打开手机插件");
             try {
-                if(operation=="activate")phone=await Task.Run(()=>controller.Activate(selected));
-                else if(operation=="restore")phone=await Task.Run(()=>controller.Restore(selected));
+                if(operation=="activate"){restoreFeedback="";phone=await Task.Run(()=>controller.Activate(selected));}
+                else if(operation=="restore"){phone=await Task.Run(()=>controller.Restore(selected));restoreFeedback=phone.Status;}
                 else await Task.Run(()=>controller.OpenPlugin(selected));
                 failed=false;
             }catch(Exception ex){ShowError(ex);}finally{SetBusy(false,"");}

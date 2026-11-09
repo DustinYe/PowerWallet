@@ -44,8 +44,8 @@ namespace PowerWallet {
         }
     }
     public static class Assets {
-        public const string ApkName="PowerWallet-1.0.2.apk";
-        public const string Version="1.0.0";
+        public const string ApkName="PowerWallet-1.0.3.apk";
+        public const string Version="1.0.1";
         public static string DirectoryPath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"PowerWallet","assets","desktop-"+Version); } }
         public static readonly string[] Names={"adb.exe","AdbWinApi.dll","AdbWinUsbApi.dll",ApkName,"NOTICE.txt","source.properties"};
         public static string Hash(byte[] data) { using(var sha=SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(data)).Replace("-","").ToLowerInvariant(); }
@@ -144,7 +144,7 @@ namespace PowerWallet {
             log("已确认机型、系统版本和 Google 钱包。");
             log("正在停止旧助手，保存的原快捷键不会丢失…");
             Shell(d,"if [ -f "+HelperJar+" ]; then CLASSPATH="+HelperJar+" app_process /system/bin cn.haiyu.powerwallet.Helper --stop >/dev/null 2>&1; fi");
-            log("正在安装手机插件 1.0.2…");
+            log("正在安装手机插件 1.0.3…");
             var install=DeviceCommand(d,120000,"install","-r",apkPath);
             if(install.ExitCode!=0 || !Regex.IsMatch(install.Output,@"(?m)^Success\s*$")) {
                 string hint=install.Output.Contains("INSTALL_FAILED_USER_RESTRICTED")?"请在手机允许 USB 安装；如果系统提示确认安装，请在手机完成。":install.Output.Contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE")?"手机上存在其他签名的同名插件，请先恢复原快捷键并卸载该插件。":"请查看手机上的安装提示后重试。";
@@ -177,7 +177,8 @@ namespace PowerWallet {
             if(push.ExitCode!=0)throw new IOException("无法传输恢复工具："+Redact(push.Output,d));
             var result=Shell(d,"CLASSPATH=/data/local/tmp/powerwallet-control.jar app_process /system/bin cn.haiyu.powerwallet.Helper --restore");
             if(result.ExitCode!=0 || !result.Output.StartsWith("已停用",StringComparison.Ordinal))throw new IOException("未能恢复原快捷键："+Redact(result.Output,d));
-            log(result.Output);return Inspect(d);
+            log(result.Output);
+            var restored=Inspect(d);restored.Status=result.Output;return restored;
         }
         public void OpenPlugin(Device d) {RequireConnected(d);Read(d,"am start -n cn.haiyu.powerwallet/.MainActivity");}
     }

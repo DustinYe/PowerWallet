@@ -48,7 +48,14 @@ public final class Helper {
     };
     private final ScheduledExecutorService timer=Executors.newSingleThreadScheduledExecutor();
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
+        try { execute(args); }
+        catch(Exception failure) {
+            System.err.println("ERROR "+failure.getClass().getSimpleName()+": "+failure.getMessage());
+            System.exit(1);
+        }
+    }
+    private static void execute(String[] args) throws Exception {
         if(args.length>0 && ("--stop".equals(args[0]) || "--status".equals(args[0]) || "--restore".equals(args[0]))) {
             boolean restoring="--restore".equals(args[0]);
             try(LocalSocket s=new LocalSocket()) {
@@ -176,11 +183,11 @@ public final class Helper {
             boolean repaired=dismissAuthenticatedKeyguard(before);
             startWallet();
             // Facial recognition can finish after the second press or while Wallet starts.
-            // Retry only if the keyguard still covers the screen and authentication is done.
+            // Retry only while Keyguard is still showing and authentication is done.
             for(int attempt=0;attempt<4;attempt++) {
                 Thread.sleep(180);
                 Bundle current=keyguardState();
-                if(!current.getBoolean("showing") || !keyguardInForeground()) break;
+                if(!current.getBoolean("showing")) break;
                 if(dismissAuthenticatedKeyguard(current)) {
                     startWallet(); repaired=true; break;
                 }
@@ -199,10 +206,6 @@ public final class Helper {
         return (Bundle)Class.forName("android.content.IContentProvider")
             .getMethod("call",AttributionSource.class,String.class,String.class,String.class,Bundle.class)
             .invoke(companionProvider,attribution,"cn.haiyu.powerwallet.bridge","keyguard",null,null);
-    }
-    private boolean keyguardInForeground() throws Exception {
-        Object wm=Class.forName("android.view.WindowManagerGlobal").getMethod("getWindowManagerService").invoke(null);
-        return (Boolean)Class.forName("android.view.IWindowManager").getMethod("isKeyguardShowingAndNotOccluded").invoke(wm);
     }
     private boolean dismissAuthenticatedKeyguard(Bundle state) throws Exception {
         if(!state.getBoolean("showing") || state.getBoolean("deviceLocked")) return false;

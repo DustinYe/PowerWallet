@@ -46,7 +46,8 @@ namespace PowerWallet {
             fake=new FakeAdb{Wallet=false};Reject(()=>Controller(fake).Activate(Device()),"missing Wallet is rejected");Check(!fake.Calls.Any(ChangesPhone),"missing Wallet performs no mutation");
             fake=new FakeAdb{State="unauthorized"};Reject(()=>Controller(fake).Activate(Device()),"connection is rechecked before activation");Check(!fake.Calls.Any(ChangesPhone),"unauthorized phone performs no mutation");
             fake=new FakeAdb{InstallFailure=true};bool failed=false;try{Controller(fake).Activate(Device());}catch(IOException e){failed=e.Message.Contains("USB 安装");}Check(failed,"USB install rejection produces useful guidance");Check(!fake.Calls.Any(x=>x.Contains("nohup") || x.Contains("push ")),"failed install never starts helper");
-            fake=new FakeAdb{Rom="new-firmware"};Controller(fake).Restore(Device());Check(fake.Calls.Any(x=>x.Contains("--restore")),"restore remains available after a firmware update");
+            fake=new FakeAdb{Rom="new-firmware"};var restored=Controller(fake).Restore(Device());Check(fake.Calls.Any(x=>x.Contains("--restore")),"restore remains available after a firmware update");
+            Check(restored.Status=="已停用，并恢复原快捷键","restore completion preserves the actual result for the interface");
             Check(!fake.Calls.Any(x=>x.Contains("put system") || x.Contains("mi_pay")),"desktop restore delegates to saved original setting");
             fake=new FakeAdb();var active=Controller(fake).Activate(Device());Check(active.Active,"successful activation requires a live helper response");
             int stopped=fake.Calls.FindIndex(x=>x.Contains("--stop")),installed=fake.Calls.FindIndex(x=>x.Contains(" install ")),pushed=fake.Calls.FindIndex(x=>x.Contains(" push ")),started=fake.Calls.FindIndex(x=>x.Contains("nohup"));

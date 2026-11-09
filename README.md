@@ -10,19 +10,20 @@
 
 ## Windows 版
 
-- 单个 EXE，内置 Android platform-tools 37.0.1 的 ADB、USB 组件和手机插件 1.0.2。
+- 单个 EXE，内置 Android platform-tools 37.0.1 的 ADB、USB 组件和手机插件 1.0.3。
 - 自动检测手机、USB 调试授权、机型、系统版本和 Google 钱包。
 - 一键安装并激活、停用并恢复、打开手机插件。
 - 深色、浅色、跟随系统三种主题，保存用户选择，标题栏和滚动条同步适配。
 - Per-Monitor V2 DPI 感知，按显示器工作区限制初始窗口大小，响应 DPI / 显示器变化。
 - 小屏幕自动换行并提供滚动访问，不修改电脑分辨率或缩放设置。
 - 状态来自运行中的助手，不能仅凭旧日志判定已激活。
+- 1.0.1 修复后台刷新期间操作按钮短暂失效的问题，并明确显示恢复或保留用户新设置的结果。
 
 支持 Windows 10 / 11 x64（.NET Framework 4.8，当前 Windows 10 / 11 通常已内置）。使用标准用户权限即可，不需要管理员运行。
 
 ## 使用
 
-1. 从 Releases 下载并运行 `PowerWallet-Setup-1.0.0.exe`。它是便携式工具，不会安装 Windows 服务。
+1. 从 Releases 下载并运行 `PowerWallet-Setup-1.0.1.exe`。它是便携式工具，不会安装 Windows 服务。
 2. 在手机开发者选项中开启 **USB 调试**，使用数据线连接电脑并允许调试授权。
 3. 在工具中选择手机，点击 **安装并激活**。如果手机要求确认 USB 安装，请在手机上完成。
 4. 看到“钱包快捷键已就绪”后，双击实体电源键测试。
@@ -37,6 +38,7 @@
 
 - 1.0.1：修复人脸验证成功但尚未上滑退出锁屏时无法显示钱包的问题。
 - 1.0.2：为电脑端增加实时状态和重启后的恢复命令，按键识别与钱包启动逻辑保持 1.0.1 的行为。
+- 1.0.3：移除未对助手开放的锁屏接口依赖，修复普通锁屏分支的偶发报错；助手未运行时状态查询正常返回失败码，不再产生异常崩溃记录。
 
 ## 原理与权限
 
@@ -52,7 +54,7 @@ Windows 端无需 NuGet 或额外 UI 框架，使用 .NET Framework 4.8 自带 C
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\desktop\build.ps1
-.\dist\PowerWallet-Setup-1.0.0.exe --self-test .\artifacts
+.\dist\PowerWallet-Setup-1.0.1.exe --self-test .\artifacts
 ```
 
 自检离线进行，覆盖兼容性拒绝、未授权、缺少钱包、安装失败、恢复、安全日志和 38 种主题 / 分辨率 / 缩放布局组合；不会激活或更改连接的手机。
@@ -60,7 +62,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\desktop\build.ps1
 Android 端需要 JDK 21、Android SDK Platform 36 与 Build Tools 36.0.0：
 
 ```powershell
-.\android\Build.ps1 -Sdk 'Android SDK 路径' -Jdk 'JDK 路径' -BuildDirectory '构建目录' -ApkPath '.\desktop\assets\PowerWallet-1.0.2.apk'
+.\android\Build.ps1 -Sdk 'Android SDK 路径' -Jdk 'JDK 路径' -BuildDirectory '构建目录' -ApkPath '.\desktop\assets\PowerWallet-1.0.3.apk'
 ```
 
 仓库不包含 APK 签名私钥。自行构建的不同签名 APK 不能直接覆盖正式版；如果切换签名，先恢复原快捷键，再卸载旧插件。正式版内置 APK 的哈希见 `desktop/assets/SHA256SUMS.txt`。
