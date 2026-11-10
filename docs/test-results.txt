@@ -19,7 +19,7 @@ PASS diagnostic output hides device serial
 PASS embedded asset adb.exe
 PASS embedded asset AdbWinApi.dll
 PASS embedded asset AdbWinUsbApi.dll
-PASS embedded asset PowerWallet-1.0.3.apk
+PASS embedded asset PowerWallet-1.0.4.apk
 PASS embedded asset NOTICE.txt
 PASS embedded asset source.properties
 PASS window fits 800x600x1 dark

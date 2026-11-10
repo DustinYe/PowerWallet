@@ -156,10 +156,10 @@ namespace PowerWallet {
             dock.Height=width<440 && height<400?400:Math.Max(220,height);UpdateScreenInfo();
         }
         private void UpdateScreenInfo() {
-            if(testMode){screenInfo.Text="Windows x64 · 手机插件 1.0.3 · 分辨率与缩放自适应";return;}
+            if(testMode){screenInfo.Text="Windows x64 · 手机插件 1.0.4 · 分辨率与缩放自适应";return;}
             var source=PresentationSource.FromVisual(this);
             double scale=source==null || source.CompositionTarget==null?1:source.CompositionTarget.TransformToDevice.M11;
-            screenInfo.Text="桌面版 1.0.1 · 手机插件 1.0.3 · 当前缩放 "+Math.Round(scale*100)+"%";
+            screenInfo.Text="桌面版 1.0.2 · 手机插件 1.0.4 · 当前缩放 "+Math.Round(scale*100)+"%";
         }
         public void ShowPhone(PhoneInfo value) {
             phone=value;

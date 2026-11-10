@@ -1,7 +1,6 @@
 package cn.haiyu.powerwallet;
 
 import android.content.ContentProvider;
-import android.app.KeyguardManager;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
@@ -15,13 +14,6 @@ public final class BridgeProvider extends ContentProvider {
     @Override public boolean onCreate() { return true; }
     @Override public Bundle call(String method, String arg, Bundle extras) {
         if(Binder.getCallingUid()!=2000) throw new SecurityException("Shell only");
-        if("keyguard".equals(method)) {
-            KeyguardManager km=getContext().getSystemService(KeyguardManager.class);
-            Bundle state=new Bundle();
-            state.putBoolean("showing",km.isKeyguardLocked());
-            state.putBoolean("deviceLocked",km.isDeviceLocked());
-            return state;
-        }
         if(!"bind".equals(method) || extras==null) throw new IllegalArgumentException();
         helper=extras.getBinder("helper");
         Bundle response=new Bundle(); response.putBoolean("ok",helper!=null); return response;

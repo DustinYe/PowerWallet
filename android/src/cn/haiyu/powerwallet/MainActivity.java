@@ -9,6 +9,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -21,6 +23,10 @@ public class MainActivity extends Activity {
     public static final String WALLET = "com.google.android.apps.walletnfcrel";
     private TextView status;
     private boolean busy;
+    private boolean resumed,explicitlyStopped;
+    private String pendingCommand;
+    private final Handler uiHandler=new Handler(Looper.getMainLooper());
+    private final Runnable statusPulse=new Runnable(){public void run(){if(resumed){if(!explicitlyStopped)request("STATUS");uiHandler.postDelayed(this,2000);}}};
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -45,11 +51,12 @@ public class MainActivity extends Activity {
                 .setMessage("停止按键助手，并恢复激活前的双击电源键设置。")
                 .setPositiveButton("恢复", (d,w) -> request("STOP")).setNegativeButton("取消", null).show();
         }});
-        TextView help = text(root, "使用说明\n\n激活后可拔掉数据线。手机重启后，需要连接电脑重新运行“激活.ps1”。\n\n锁屏时请按 Google 钱包要求完成指纹或密码验证。插件不读取银行卡，也不处理付款。\n\n卸载前请先点“停用并恢复原快捷键”。", 14, false, 0xFF536357);
+        TextView help = text(root, "使用说明\n\n激活后可拔线、关闭应用界面。应用被系统清理时，独立运行的按键助手仍可工作。\n\n手机重启后，需要连接电脑打开 PowerWallet 重新激活。锁屏时请按 Google 钱包要求完成验证。插件不读取银行卡，也不处理付款。\n\n卸载前请先点“停用并恢复原快捷键”。", 14, false, 0xFF536357);
         help.setPadding(0, dp(26), 0, 0);
         setContentView(scroll);
     }
-    @Override protected void onResume() { super.onResume(); request("STATUS"); }
+    @Override protected void onResume() { super.onResume();resumed=true;explicitlyStopped=false;uiHandler.post(statusPulse); }
+    @Override protected void onPause() {resumed=false;uiHandler.removeCallbacks(statusPulse);super.onPause();}
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
     private TextView text(LinearLayout root, String value, int size, boolean bold, int color) {
         TextView t = new TextView(this); t.setText(value); t.setTextSize(size); t.setTextColor(color);
@@ -68,7 +75,7 @@ public class MainActivity extends Activity {
         }
     }
     private void request(final String command) {
-        if(busy) return; busy = true;
+        if(busy){if(!"STATUS".equals(command))pendingCommand=command;return;}busy=true;
         new Thread(() -> {
             String reply;
             try {
@@ -81,9 +88,14 @@ public class MainActivity extends Activity {
                     response.readException(); reply=response.readString();
                     if(reply==null) throw new IOException();
                 } finally {data.recycle();response.recycle();}
-            } catch(Exception e) { reply = "未激活\n请连接电脑运行“激活.ps1”。"; }
+            } catch(Exception e) { reply = "正在连接后台助手…\n如果持续无法连接，请用电脑检查激活状态。"; }
             final String result = reply.replace("|", "\n");
-            runOnUiThread(() -> { busy = false; status.setText(result); });
+            runOnUiThread(() -> {
+                busy=false;status.setText(result);
+                if("STOP".equals(command) && result.startsWith("已停用"))explicitlyStopped=true;
+                String queued=pendingCommand;pendingCommand=null;
+                if(queued!=null)request(queued);
+            });
         }, "wallet-status").start();
     }
 }

@@ -2,7 +2,7 @@
     [string]$Sdk = "$env:LOCALAPPDATA\Android\Sdk",
     [string]$Jdk = "$env:USERPROFILE\.jdks\jbr-21.0.11",
     [string]$BuildDirectory = "$env:TEMP\PowerWallet-build",
-    [string]$ApkPath = "$PSScriptRoot\..\PowerWallet-1.0.3.apk"
+    [string]$ApkPath = "$PSScriptRoot\..\PowerWallet-1.0.4.apk"
 )
 $ErrorActionPreference = 'Stop'
 $env:JAVA_HOME = $Jdk

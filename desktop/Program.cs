@@ -8,8 +8,8 @@ using System.Windows;
 [assembly: AssemblyDescription("Xiaomi power-button Google Wallet shortcut companion")]
 [assembly: AssemblyCompany("DustinYe")]
 [assembly: AssemblyProduct("PowerWallet")]
-[assembly: AssemblyVersion("1.0.1.0")]
-[assembly: AssemblyFileVersion("1.0.1.0")]
+[assembly: AssemblyVersion("1.0.2.0")]
+[assembly: AssemblyFileVersion("1.0.2.0")]
 [assembly: TargetFramework(".NETFramework,Version=v4.8",FrameworkDisplayName=".NET Framework 4.8")]
 
 namespace PowerWallet {

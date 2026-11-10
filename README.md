@@ -10,7 +10,7 @@
 
 ## Windows 版
 
-- 单个 EXE，内置 Android platform-tools 37.0.1 的 ADB、USB 组件和手机插件 1.0.3。
+- 单个 EXE，内置 Android platform-tools 37.0.1 的 ADB、USB 组件和手机插件 1.0.4。
 - 自动检测手机、USB 调试授权、机型、系统版本和 Google 钱包。
 - 一键安装并激活、停用并恢复、打开手机插件。
 - 深色、浅色、跟随系统三种主题，保存用户选择，标题栏和滚动条同步适配。
@@ -18,17 +18,20 @@
 - 小屏幕自动换行并提供滚动访问，不修改电脑分辨率或缩放设置。
 - 状态来自运行中的助手，不能仅凭旧日志判定已激活。
 - 1.0.1 修复后台刷新期间操作按钮短暂失效的问题，并明确显示恢复或保留用户新设置的结果。
+- 1.0.2 内置稳定性修复：应用进程被清理时，独立助手仍能启动钱包；重新打开手机应用后自动连接助手。
 
 支持 Windows 10 / 11 x64（.NET Framework 4.8，当前 Windows 10 / 11 通常已内置）。使用标准用户权限即可，不需要管理员运行。
 
 ## 使用
 
-1. 从 Releases 下载并运行 `PowerWallet-Setup-1.0.1.exe`。它是便携式工具，不会安装 Windows 服务。
+1. 从 Releases 下载并运行 `PowerWallet-Setup-1.0.2.exe`。它是便携式工具，不会安装 Windows 服务。
 2. 在手机开发者选项中开启 **USB 调试**，使用数据线连接电脑并允许调试授权。
 3. 在工具中选择手机，点击 **安装并激活**。如果手机要求确认 USB 安装，请在手机上完成。
 4. 看到“钱包快捷键已就绪”后，双击实体电源键测试。
 
 **激活完成后可以拔线；手机重启后必须重新连接电脑激活。** 助手若被系统终止，也需要重新激活。仅安装 APK 不会启动按键助手。
+
+手机应用的界面进程可以被清理，已启动的助手不依赖它查询锁屏状态。重新打开应用后会自动恢复状态连接。卸载前仍请先停用并恢复原快捷键。
 
 支付仍由 Google 钱包处理，并遵循它的验证和设备安全要求。本工具不读取银行卡、NFC 交易数据或 Google 账户，也不执行付款。真实读卡器交易未在本次开发中测试。
 
@@ -39,6 +42,7 @@
 - 1.0.1：修复人脸验证成功但尚未上滑退出锁屏时无法显示钱包的问题。
 - 1.0.2：为电脑端增加实时状态和重启后的恢复命令，按键识别与钱包启动逻辑保持 1.0.1 的行为。
 - 1.0.3：移除未对助手开放的锁屏接口依赖，修复普通锁屏分支的偶发报错；助手未运行时状态查询正常返回失败码，不再产生异常崩溃记录。
+- 1.0.4：修复应用被低内存回收后快捷键失效。锁屏查询改由助手直接访问已验证固件的系统服务；界面断线重试与按键处理分开，重新打开应用后自动连接。
 
 ## 原理与权限
 
@@ -54,7 +58,7 @@ Windows 端无需 NuGet 或额外 UI 框架，使用 .NET Framework 4.8 自带 C
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\desktop\build.ps1
-.\dist\PowerWallet-Setup-1.0.1.exe --self-test .\artifacts
+.\dist\PowerWallet-Setup-1.0.2.exe --self-test .\artifacts
 ```
 
 自检离线进行，覆盖兼容性拒绝、未授权、缺少钱包、安装失败、恢复、安全日志和 38 种主题 / 分辨率 / 缩放布局组合；不会激活或更改连接的手机。
@@ -62,7 +66,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\desktop\build.ps1
 Android 端需要 JDK 21、Android SDK Platform 36 与 Build Tools 36.0.0：
 
 ```powershell
-.\android\Build.ps1 -Sdk 'Android SDK 路径' -Jdk 'JDK 路径' -BuildDirectory '构建目录' -ApkPath '.\desktop\assets\PowerWallet-1.0.3.apk'
+.\android\Build.ps1 -Sdk 'Android SDK 路径' -Jdk 'JDK 路径' -BuildDirectory '构建目录' -ApkPath '.\desktop\assets\PowerWallet-1.0.4.apk'
 ```
 
 仓库不包含 APK 签名私钥。自行构建的不同签名 APK 不能直接覆盖正式版；如果切换签名，先恢复原快捷键，再卸载旧插件。正式版内置 APK 的哈希见 `desktop/assets/SHA256SUMS.txt`。

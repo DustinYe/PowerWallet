@@ -4,6 +4,7 @@ import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 import android.content.AttributionSource;
+import android.app.ActivityManager;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -30,7 +31,10 @@ public final class Helper {
     private Process reader;
     private LocalServerSocket server;
     private Object activityManager;
-    private volatile Object companionProvider;
+    private volatile IBinder companionBinder;
+    private IBinder.DeathRecipient companionDeath;
+    private boolean externalProviderHeld;
+    private SystemKeyguard systemKeyguard;
     private final IBinder providerToken=new Binder();
     private final Binder control=new Binder() {
         @Override protected boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
@@ -47,6 +51,8 @@ public final class Helper {
         }
     };
     private final ScheduledExecutorService timer=Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService bridgeTimer=Executors.newSingleThreadScheduledExecutor();
+    private final java.util.concurrent.atomic.AtomicBoolean bridgeRecoveryPending=new java.util.concurrent.atomic.AtomicBoolean();
 
     public static void main(String[] args) {
         try { execute(args); }
@@ -108,6 +114,9 @@ public final class Helper {
         Matcher uid=Pattern.compile("package:cn\\.haiyu\\.powerwallet uid:(\\d+)").matcher(packages);
         if(!uid.find()) throw new IOException("Install the companion app first");
         appUid=Integer.parseInt(uid.group(1));
+        systemKeyguard=new SystemKeyguard();
+        systemKeyguard.read(); // Validate the actual Binder API before changing any shortcut.
+        activityManager=Class.forName("android.app.ActivityManager").getMethod("getService").invoke(null);
         inputPath=findPowerDevice();
         Properties props=new Properties();
         if(STATE.exists()) try(FileInputStream in=new FileInputStream(STATE)){props.load(in);}
@@ -120,7 +129,8 @@ public final class Helper {
         Thread.sleep(100);
         if(!reader.isAlive()) throw new IOException("Power-key input is unavailable");
         putSetting(MARKER); // This exact ROM implements this action as a no-op, consuming the original wallet shortcut.
-        bindProvider();
+        try{bindProvider();}
+        catch(Exception unavailable){System.out.println("BRIDGE_DEFERRED "+unavailable);scheduleBridgeRecovery(1000);}
         new Thread(() -> socketLoop(),"wallet-control").start();
         timer.scheduleAtFixedRate(() -> {
             if(running && detector.poll(SystemClock.uptimeMillis())) launch();
@@ -138,14 +148,15 @@ public final class Helper {
             shutdown();
         }
     }
-    private void bindProvider() throws Exception {
+    private synchronized void bindProvider() throws Exception {
+        if(!running)return;
+        releaseProvider();
         Class<?> amClass=Class.forName("android.app.IActivityManager");
-        activityManager=Class.forName("android.app.ActivityManager").getMethod("getService").invoke(null);
         Object holder=amClass.getMethod("getContentProviderExternal",String.class,int.class,IBinder.class,String.class)
             .invoke(activityManager,"cn.haiyu.powerwallet.bridge",0,providerToken,"PowerWallet");
         if(holder==null) throw new IOException("Companion provider is unavailable");
+        externalProviderHeld=true;
         Object provider=holder.getClass().getField("provider").get(holder);
-        companionProvider=provider;
         Bundle args=new Bundle(); args.putBinder("helper",control);
         AttributionSource attribution=new AttributionSource.Builder(2000).setPackageName("com.android.shell").build();
         Class<?> cp=Class.forName("android.content.IContentProvider");
@@ -153,13 +164,52 @@ public final class Helper {
             .invoke(provider,attribution,"cn.haiyu.powerwallet.bridge","bind",null,args);
         if(!(result instanceof Bundle) || !((Bundle)result).getBoolean("ok")) throw new IOException("Companion rejected the connection");
         IBinder providerBinder=(IBinder)cp.getMethod("asBinder").invoke(provider);
-        providerBinder.linkToDeath(() -> {
-            if(running) timer.schedule(() -> { try{bindProvider();}catch(Exception e){System.out.println("REBIND_ERROR "+e);} },1,TimeUnit.SECONDS);
-        },0);
+        companionBinder=providerBinder;
+        companionDeath=() -> {
+            synchronized(Helper.this){if(companionBinder!=providerBinder)return;companionBinder=null;}
+            System.out.println("BRIDGE_LOST shortcut remains independent");
+            scheduleBridgeRecovery(1000);
+        };
+        providerBinder.linkToDeath(companionDeath,0);
+        if(!providerBinder.isBinderAlive())throw new IOException("Companion process exited during connection");
         System.out.println("BRIDGE_READY");
     }
+    private void scheduleBridgeRecovery(long delay) {
+        if(!running || !bridgeRecoveryPending.compareAndSet(false,true))return;
+        try{bridgeTimer.schedule(() -> {
+            bridgeRecoveryPending.set(false);
+            if(!running || (companionBinder!=null && companionBinder.isBinderAlive()))return;
+            try {
+                // Do not keep restarting an app that Android intentionally reclaimed.
+                // Reconnect after the user opens it again; the power shortcut works meanwhile.
+                if(companionProcessRunning())bindProvider();
+            }catch(Exception failed){System.out.println("BRIDGE_RETRY "+failed);}
+            if(running && (companionBinder==null || !companionBinder.isBinderAlive()))scheduleBridgeRecovery(5000);
+        },delay,TimeUnit.MILLISECONDS);}catch(RejectedExecutionException stopped){bridgeRecoveryPending.set(false);}
+    }
+    private boolean companionProcessRunning() throws Exception {
+        Object value=Class.forName("android.app.IActivityManager").getMethod("getRunningAppProcesses").invoke(activityManager);
+        if(!(value instanceof java.util.List))return false;
+        for(Object item:(java.util.List<?>)value) {
+            ActivityManager.RunningAppProcessInfo process=(ActivityManager.RunningAppProcessInfo)item;
+            if(process.uid==appUid && "cn.haiyu.powerwallet".equals(process.processName))return true;
+        }
+        return false;
+    }
+    private synchronized void releaseProvider() {
+        IBinder binder=companionBinder;companionBinder=null;
+        if(binder!=null && companionDeath!=null)try{binder.unlinkToDeath(companionDeath,0);}catch(Exception ignored){}
+        companionDeath=null;
+        if(externalProviderHeld) {
+            try{Class.forName("android.app.IActivityManager").getMethod("removeContentProviderExternal",String.class,IBinder.class).invoke(activityManager,"cn.haiyu.powerwallet.bridge",providerToken);}catch(Exception ignored){}
+            externalProviderHeld=false;
+        }
+    }
     private String status() throws Exception {
-        return (MARKER.equals(setting()) ? "已激活 · 数据线可拔出" : "快捷键已改变 · 请重新激活")+"|已触发 "+launches+" 次 · "+last;
+        boolean healthy=reader!=null && reader.isAlive();
+        try{systemKeyguard.read();}catch(Exception failed){healthy=false;}
+        String state=!MARKER.equals(setting())?"快捷键已改变 · 请重新激活":!healthy?"助手异常 · 请重新激活":"已激活 · 数据线可拔出";
+        return state+"|已触发 "+launches+" 次 · "+last;
     }
     private String findPowerDevice() throws Exception {
         String desc=command("/system/bin/getevent","-lp");
@@ -202,10 +252,7 @@ public final class Helper {
         if(result.contains("Error:") || result.contains("Exception")) throw new IOException(result);
     }
     private Bundle keyguardState() throws Exception {
-        AttributionSource attribution=new AttributionSource.Builder(2000).setPackageName("com.android.shell").build();
-        return (Bundle)Class.forName("android.content.IContentProvider")
-            .getMethod("call",AttributionSource.class,String.class,String.class,String.class,Bundle.class)
-            .invoke(companionProvider,attribution,"cn.haiyu.powerwallet.bridge","keyguard",null,null);
+        return systemKeyguard.read();
     }
     private boolean dismissAuthenticatedKeyguard(Bundle state) throws Exception {
         if(!state.getBoolean("showing") || state.getBoolean("deviceLocked")) return false;
@@ -242,9 +289,9 @@ public final class Helper {
         putSetting(original); return true;
     }
     private void shutdown() {
-        running=false; timer.shutdownNow();
+        running=false; timer.shutdownNow();bridgeTimer.shutdownNow();
         if(reader!=null) reader.destroy();
         try{server.close();}catch(Exception ignored){}
-        try{Class.forName("android.app.IActivityManager").getMethod("removeContentProviderExternal",String.class,IBinder.class).invoke(activityManager,"cn.haiyu.powerwallet.bridge",providerToken);}catch(Exception ignored){}
+        releaseProvider();
     }
 }

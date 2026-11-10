@@ -44,8 +44,8 @@ namespace PowerWallet {
         }
     }
     public static class Assets {
-        public const string ApkName="PowerWallet-1.0.3.apk";
-        public const string Version="1.0.1";
+        public const string ApkName="PowerWallet-1.0.4.apk";
+        public const string Version="1.0.2";
         public static string DirectoryPath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"PowerWallet","assets","desktop-"+Version); } }
         public static readonly string[] Names={"adb.exe","AdbWinApi.dll","AdbWinUsbApi.dll",ApkName,"NOTICE.txt","source.properties"};
         public static string Hash(byte[] data) { using(var sha=SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(data)).Replace("-","").ToLowerInvariant(); }
@@ -144,7 +144,7 @@ namespace PowerWallet {
             log("已确认机型、系统版本和 Google 钱包。");
             log("正在停止旧助手，保存的原快捷键不会丢失…");
             Shell(d,"if [ -f "+HelperJar+" ]; then CLASSPATH="+HelperJar+" app_process /system/bin cn.haiyu.powerwallet.Helper --stop >/dev/null 2>&1; fi");
-            log("正在安装手机插件 1.0.3…");
+            log("正在安装手机插件 1.0.4…");
             var install=DeviceCommand(d,120000,"install","-r",apkPath);
             if(install.ExitCode!=0 || !Regex.IsMatch(install.Output,@"(?m)^Success\s*$")) {
                 string hint=install.Output.Contains("INSTALL_FAILED_USER_RESTRICTED")?"请在手机允许 USB 安装；如果系统提示确认安装，请在手机完成。":install.Output.Contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE")?"手机上存在其他签名的同名插件，请先恢复原快捷键并卸载该插件。":"请查看手机上的安装提示后重试。";
