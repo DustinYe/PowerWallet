@@ -38,5 +38,7 @@ public final class PressDetector {
         return false;
     }
 
+    public synchronized long deadline() { return pending; }
+
     private void reset() { down = firstDown = pending = sequenceEnd = -1; taps = 0; }
 }

@@ -10,7 +10,7 @@
 
 ## Windows 版
 
-- 单个 EXE，内置 Android platform-tools 37.0.1 的 ADB、USB 组件和手机插件 1.0.4。
+- 单个 EXE，内置 Android platform-tools 37.0.1 的 ADB、USB 组件和手机插件 1.0.5。
 - 自动检测手机、USB 调试授权、机型、系统版本和 Google 钱包。
 - 一键安装并激活、停用并恢复、打开手机插件。
 - 深色、浅色、跟随系统三种主题，保存用户选择，标题栏和滚动条同步适配。
@@ -20,11 +20,13 @@
 - 1.0.1 修复后台刷新期间操作按钮短暂失效的问题，并明确显示恢复或保留用户新设置的结果。
 - 1.0.2 内置稳定性修复：应用进程被清理时，独立助手仍能启动钱包；重新打开手机应用后自动连接助手。
 
+- 1.0.3 内置按键检测优化：移除每 20 毫秒一次的空闲轮询，双击后只安排一次延迟确认。
+
 支持 Windows 10 / 11 x64（.NET Framework 4.8，当前 Windows 10 / 11 通常已内置）。使用标准用户权限即可，不需要管理员运行。
 
 ## 使用
 
-1. 从 Releases 下载并运行 `PowerWallet-Setup-1.0.2.exe`。它是便携式工具，不会安装 Windows 服务。
+1. 从 Releases 下载并运行 `PowerWallet-Setup-1.0.3.exe`。它是便携式工具，不会安装 Windows 服务。
 2. 在手机开发者选项中开启 **USB 调试**，使用数据线连接电脑并允许调试授权。
 3. 在工具中选择手机，点击 **安装并激活**。如果手机要求确认 USB 安装，请在手机上完成。
 4. 看到“钱包快捷键已就绪”后，双击实体电源键测试。
@@ -44,6 +46,8 @@
 - 1.0.3：移除未对助手开放的锁屏接口依赖，修复普通锁屏分支的偶发报错；助手未运行时状态查询正常返回失败码，不再产生异常崩溃记录。
 - 1.0.4：修复应用被低内存回收后快捷键失效。锁屏查询改由助手直接访问已验证固件的系统服务；界面断线重试与按键处理分开，重新打开应用后自动连接。
 
+- 1.0.5：改为按键事件驱动，空闲时不周期检查双击；保留三连击、长按取消和原来的双击确认间隔。详见[性能验证](docs/performance.md)。
+
 ## 原理与权限
 
 在已验证的这版国行系统中，框架 `google_pay` 快捷操作实现为空，而 `mi_pay` 固定打开小米钱包。ADB shell 助手保存原设置，将双击操作设置为该空操作，再监听实体电源键事件，通过 Google 钱包的 `QUICKDRAW` 入口打开卡片页面。
@@ -58,7 +62,7 @@ Windows 端无需 NuGet 或额外 UI 框架，使用 .NET Framework 4.8 自带 C
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\desktop\build.ps1
-.\dist\PowerWallet-Setup-1.0.2.exe --self-test .\artifacts
+.\dist\PowerWallet-Setup-1.0.3.exe --self-test .\artifacts
 ```
 
 自检离线进行，覆盖兼容性拒绝、未授权、缺少钱包、安装失败、恢复、安全日志和 38 种主题 / 分辨率 / 缩放布局组合；不会激活或更改连接的手机。
@@ -66,7 +70,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\desktop\build.ps1
 Android 端需要 JDK 21、Android SDK Platform 36 与 Build Tools 36.0.0：
 
 ```powershell
-.\android\Build.ps1 -Sdk 'Android SDK 路径' -Jdk 'JDK 路径' -BuildDirectory '构建目录' -ApkPath '.\desktop\assets\PowerWallet-1.0.4.apk'
+.\android\Build.ps1 -Sdk 'Android SDK 路径' -Jdk 'JDK 路径' -BuildDirectory '构建目录' -ApkPath '.\desktop\assets\PowerWallet-1.0.5.apk'
 ```
 
 仓库不包含 APK 签名私钥。自行构建的不同签名 APK 不能直接覆盖正式版；如果切换签名，先恢复原快捷键，再卸载旧插件。正式版内置 APK 的哈希见 `desktop/assets/SHA256SUMS.txt`。

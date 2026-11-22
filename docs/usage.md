@@ -22,6 +22,8 @@
 
 独立助手本身如果被结束，仍需要通过电脑重新激活；这与仅清理手机应用是不同情况。
 
+从手机插件 1.0.5 起，双击识别改为按键事件驱动，空闲时不再每 20 毫秒检查一次。双击后的确认间隔不变，也不需要 root。界面连接断开时的恢复重试仍保留。
+
 ## 深色模式与屏幕适配
 
 顶部可选择跟随系统、深色或浅色。选择会保存在当前 Windows 用户的 `%LOCALAPPDATA%\PowerWallet\theme.txt`。
@@ -40,6 +42,6 @@
 
 ## 本地文件
 
-EXE 首次运行会把 ADB、USB DLL、APK 与许可声明解包到当前用户的 `%LOCALAPPDATA%\PowerWallet\assets\desktop-1.0.2`，后续会核对内容哈希。无需管理员权限。
+EXE 首次运行会把 ADB、USB DLL、APK 与许可声明解包到当前用户的 `%LOCALAPPDATA%\PowerWallet\assets\desktop-1.0.3`，后续会核对内容哈希。无需管理员权限。
 
 手机端助手与快捷键备份位于 `/data/local/tmp/powerwallet-*`。操作日志只在电脑窗口中显示，不上传外网。APK 不读取银行卡信息。

@@ -2,7 +2,7 @@
     [string]$Sdk = "$env:LOCALAPPDATA\Android\Sdk",
     [string]$Jdk = "$env:USERPROFILE\.jdks\jbr-21.0.11",
     [string]$BuildDirectory = "$env:TEMP\PowerWallet-build",
-    [string]$ApkPath = "$PSScriptRoot\..\PowerWallet-1.0.4.apk"
+    [string]$ApkPath = "$PSScriptRoot\..\PowerWallet-1.0.5.apk"
 )
 $ErrorActionPreference = 'Stop'
 $env:JAVA_HOME = $Jdk
@@ -14,9 +14,12 @@ function CheckExit { if($LASTEXITCODE -ne 0) { throw "Build tool failed with exi
 $sources = @(Get-ChildItem -LiteralPath "$PSScriptRoot\src" -Recurse -Filter '*.java' | ForEach-Object FullName)
 & "$Jdk\bin\javac.exe" -encoding UTF-8 -source 8 -target 8 -cp $androidJar -d "$BuildDirectory\classes" @sources
 CheckExit
-& "$Jdk\bin\javac.exe" -encoding UTF-8 -cp "$BuildDirectory\classes" -d "$BuildDirectory\tests" "$PSScriptRoot\test\PressDetectorTest.java"
+$testSources=@(Get-ChildItem -LiteralPath "$PSScriptRoot\test" -Filter '*.java' | ForEach-Object FullName)
+& "$Jdk\bin\javac.exe" -encoding UTF-8 -cp "$BuildDirectory\classes" -d "$BuildDirectory\tests" @testSources
 CheckExit
 & "$Jdk\bin\java.exe" -cp "$BuildDirectory\classes;$BuildDirectory\tests" PressDetectorTest
+CheckExit
+& "$Jdk\bin\java.exe" -cp "$BuildDirectory\classes;$BuildDirectory\tests" EventDrivenGestureTest
 CheckExit
 & "$Jdk\bin\jar.exe" cf "$BuildDirectory\classes.jar" -C "$BuildDirectory\classes" .
 CheckExit

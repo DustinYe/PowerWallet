@@ -22,7 +22,7 @@ import java.util.regex.*;
 public final class Helper {
     private static final String KEY="double_click_power_key", MARKER="google_pay";
     private static final File STATE=new File("/data/local/tmp/powerwallet-state.properties");
-    private final PressDetector detector=new PressDetector();
+    private EventDrivenGesture gestures;
     private volatile boolean running=true;
     private volatile String last="尚未触发";
     private volatile int launches=0;
@@ -50,7 +50,7 @@ public final class Helper {
             return true;
         }
     };
-    private final ScheduledExecutorService timer=Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledThreadPoolExecutor timer=new ScheduledThreadPoolExecutor(1);
     private final ScheduledExecutorService bridgeTimer=Executors.newSingleThreadScheduledExecutor();
     private final java.util.concurrent.atomic.AtomicBoolean bridgeRecoveryPending=new java.util.concurrent.atomic.AtomicBoolean();
 
@@ -132,16 +132,18 @@ public final class Helper {
         try{bindProvider();}
         catch(Exception unavailable){System.out.println("BRIDGE_DEFERRED "+unavailable);scheduleBridgeRecovery(1000);}
         new Thread(() -> socketLoop(),"wallet-control").start();
-        timer.scheduleAtFixedRate(() -> {
-            if(running && detector.poll(SystemClock.uptimeMillis())) launch();
-        },20,20,TimeUnit.MILLISECONDS);
+        timer.setRemoveOnCancelPolicy(true);
+        gestures=new EventDrivenGesture(SystemClock::uptimeMillis,(task,delay) -> {
+            ScheduledFuture<?> future=timer.schedule(task,delay,TimeUnit.MILLISECONDS);
+            return () -> future.cancel(false);
+        },() -> {if(running)launch();});
         System.out.println("READY uid="+appUid+" input="+inputPath+" original="+original);
         Pattern event=Pattern.compile("\\[\\s*([0-9]+\\.[0-9]+)\\]\\s+(?:/dev/input/event\\d+:\\s+)?EV_KEY\\s+KEY_POWER\\s+(DOWN|UP)");
         try(BufferedReader in=new BufferedReader(new InputStreamReader(reader.getInputStream()))) {
             String line;
             while(running && (line=in.readLine())!=null) {
                 Matcher m=event.matcher(line);
-                if(m.find()) detector.event("DOWN".equals(m.group(2)),Math.round(Double.parseDouble(m.group(1))*1000));
+                if(m.find()) gestures.event("DOWN".equals(m.group(2)),Math.round(Double.parseDouble(m.group(1))*1000));
             }
         } finally {
             if(running) restore();
@@ -289,7 +291,7 @@ public final class Helper {
         putSetting(original); return true;
     }
     private void shutdown() {
-        running=false; timer.shutdownNow();bridgeTimer.shutdownNow();
+        running=false;if(gestures!=null)gestures.close();timer.shutdownNow();bridgeTimer.shutdownNow();
         if(reader!=null) reader.destroy();
         try{server.close();}catch(Exception ignored){}
         releaseProvider();
